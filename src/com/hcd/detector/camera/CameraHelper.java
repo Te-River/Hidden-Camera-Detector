@@ -60,6 +60,8 @@ public class CameraHelper {
     private boolean wantAnalysis;
     private Size preferredSize;
     private boolean torchOn;
+    /** close() 后为 true：拦截迟到的 onOpened/onConfigured，防止相机被重新占用（M1）。 */
+    private volatile boolean released;
 
     public CameraHelper(Context context) {
         cameraManager = (CameraManager) context.getSystemService(Context.CAMERA_SERVICE);
@@ -80,6 +82,7 @@ public class CameraHelper {
         this.torchOn = false;
 
         close(); // 幂等复位旧会话与线程
+        released = false;
 
         if (cameraManager == null) {
             reportError("相机服务不可用");
@@ -130,6 +133,7 @@ public class CameraHelper {
 
     /** 释放相机、会话、ImageReader、线程。幂等。 */
     public void close() {
+        released = true;
         if (session != null) {
             session.close();
             session = null;
@@ -139,6 +143,8 @@ public class CameraHelper {
             cameraDevice = null;
         }
         if (analysisReader != null) {
+            // 先摘除监听再 close，缩小与分析线程 acquireLatestImage 的竞态窗口（M2）
+            analysisReader.setOnImageAvailableListener(null, null);
             analysisReader.close();
             analysisReader = null;
         }
@@ -203,6 +209,9 @@ public class CameraHelper {
     }
 
     private void reportError(String message) {
+        if (released) {
+            return; // 已释放：不再回调，避免触碰已退出的 Activity
+        }
         if (listener != null) {
             listener.onError(message);
         } else {
@@ -256,7 +265,18 @@ public class CameraHelper {
     private final CameraDevice.StateCallback deviceCallback = new CameraDevice.StateCallback() {
         @Override
         public void onOpened(CameraDevice camera) {
+            if (released) {
+                // close() 已在途：迟到的相机直接关掉，不建会话（M1）
+                camera.close();
+                return;
+            }
             cameraDevice = camera;
+            if (released) {
+                // close() 恰好在赋值瞬间介入：补一次关闭，避免相机被永久占用
+                cameraDevice = null;
+                camera.close();
+                return;
+            }
             startSession();
         }
 
@@ -274,6 +294,9 @@ public class CameraHelper {
             if (cameraDevice == camera) {
                 cameraDevice = null;
             }
+            if (released) {
+                return;
+            }
             reportError("相机错误码 " + error);
         }
     };
@@ -282,9 +305,11 @@ public class CameraHelper {
             new CameraCaptureSession.StateCallback() {
                 @Override
                 public void onConfigured(CameraCaptureSession s) {
-                    if (cameraDevice == null) {
+                    if (released || cameraDevice == null) {
                         s.close();
-                        reportError("相机已释放");
+                        if (!released) {
+                            reportError("相机已释放");
+                        }
                         return;
                     }
                     session = s;

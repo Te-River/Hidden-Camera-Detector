@@ -45,6 +45,8 @@ public class NetworkScanActivity extends Activity implements PortScanner.Callbac
     /** NSD 服务类型：RTSP 流 / ONVIF 网络摄像头 / Axis 视频设备 */
     private static final String[] NSD_TYPES = {"_rtsp._tcp.", "_onvif._tcp.", "_axis-video._tcp."};
     private static final long REFRESH_MERGE_MS = 100;
+    /** 单条 NSD resolve 在途超时：回调丢失（部分 ROM）时强制放行队列（m4）。 */
+    private static final long RESOLVE_TIMEOUT_MS = 5_000L;
 
     private final ConcurrentHashMap<String, Device> devices = new ConcurrentHashMap<>();
     private final AtomicBoolean refreshPending = new AtomicBoolean(false);
@@ -63,6 +65,7 @@ public class NetworkScanActivity extends Activity implements PortScanner.Callbac
             new NsdManager.DiscoveryListener[NSD_TYPES.length];
     private boolean resolving;
     private volatile boolean nsdActive;
+    private volatile boolean scanning;
 
     private Button btnStart;
     private Button btnStop;
@@ -129,6 +132,24 @@ public class NetworkScanActivity extends Activity implements PortScanner.Callbac
         main.removeCallbacksAndMessages(null);
     }
 
+    /** 功耗标准（C2）：不可见即停扫描，回前台由用户手动重启。 */
+    @Override
+    protected void onPause() {
+        super.onPause();
+        if (scanning) {
+            stopScan();
+        }
+    }
+
+    /** 内存管理（T/TAF 358，C1）：内存吃紧时停扫描。 */
+    @Override
+    public void onTrimMemory(int level) {
+        super.onTrimMemory(level);
+        if (level >= TRIM_MEMORY_RUNNING_LOW && scanning) {
+            stopScan();
+        }
+    }
+
     // ==================== 扫描主流程 ====================
 
     private void startScan() {
@@ -136,6 +157,7 @@ public class NetworkScanActivity extends Activity implements PortScanner.Callbac
             Toast.makeText(this, R.string.scan_no_wifi, Toast.LENGTH_LONG).show();
             return;
         }
+        scanning = true;
         devices.clear();
         rebuildSnapshot();
         adapter.notifyDataSetChanged();
@@ -146,6 +168,7 @@ public class NetworkScanActivity extends Activity implements PortScanner.Callbac
     }
 
     private void stopScan() {
+        scanning = false;
         portScanner.cancel();
         stopNsd();
         tvProgress.setText(getString(R.string.scan_finished, devices.size()));
@@ -312,6 +335,7 @@ public class NetworkScanActivity extends Activity implements PortScanner.Callbac
     }
 
     private void stopNsd() {
+        main.removeCallbacks(resolveTimeout);
         synchronized (nsdLock) {
             nsdActive = false;
             resolveQueue.clear();
@@ -357,6 +381,9 @@ public class NetworkScanActivity extends Activity implements PortScanner.Callbac
                         NsdServiceInfo.class, NsdManager.ResolveListener.class);
                 resolve.invoke(nsdManager, info, resolveListener);
             }
+            // 在途 resolve 加 5 秒超时：回调丢失（部分 ROM）时强制放行队列（m4）
+            main.removeCallbacks(resolveTimeout);
+            main.postDelayed(resolveTimeout, RESOLVE_TIMEOUT_MS);
         } catch (Exception e) {
             // 内部仍有在途 resolve（如 stopNsd 后残留）或反射失败：丢弃本条，
             // 等在途回调或下一次 onServiceFound 再驱动队列
@@ -364,9 +391,23 @@ public class NetworkScanActivity extends Activity implements PortScanner.Callbac
         }
     }
 
+    /** resolve 超时兜底：5 秒无回调视为丢失，强制放行队列。 */
+    private final Runnable resolveTimeout = new Runnable() {
+        @Override
+        public void run() {
+            synchronized (nsdLock) {
+                if (resolving) {
+                    resolving = false;
+                    pumpResolveLocked();
+                }
+            }
+        }
+    };
+
     private final NsdManager.ResolveListener resolveListener = new NsdManager.ResolveListener() {
         @Override
         public void onResolveFailed(NsdServiceInfo info, int errorCode) {
+            main.removeCallbacks(resolveTimeout);
             synchronized (nsdLock) {
                 resolving = false;
                 pumpResolveLocked();
@@ -376,6 +417,7 @@ public class NetworkScanActivity extends Activity implements PortScanner.Callbac
         @Override
         public void onServiceResolved(NsdServiceInfo info) {
             mergeNsdDevice(info);
+            main.removeCallbacks(resolveTimeout);
             synchronized (nsdLock) {
                 resolving = false;
                 pumpResolveLocked();

@@ -89,6 +89,19 @@ public class MainActivity extends Activity implements AdapterView.OnItemClickLis
         }
     }
 
+    /** 内存管理（T/TAF 358，C1）：主列表无可释放重资源，实现以履行配合回收义务。 */
+    @Override
+    public void onTrimMemory(int level) {
+        super.onTrimMemory(level);
+    }
+
+    /** onLowMemory 兜底：转发到 onTrimMemory（C1）。 */
+    @Override
+    public void onLowMemory() {
+        super.onLowMemory();
+        onTrimMemory(TRIM_MEMORY_COMPLETE);
+    }
+
     /** 全部已授权返回 true；否则发起请求、记录 pending 并返回 false。 */
     private boolean ensurePermissions(int modeIndex) {
         String[] perms = MODE_PERMISSIONS[modeIndex];

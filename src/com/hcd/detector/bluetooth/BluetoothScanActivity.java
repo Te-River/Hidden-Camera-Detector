@@ -152,6 +152,24 @@ public class BluetoothScanActivity extends Activity {
         main.removeCallbacksAndMessages(null);
     }
 
+    /** 功耗标准（C2）：不可见即停扫描，回前台由用户手动重启。 */
+    @Override
+    protected void onPause() {
+        super.onPause();
+        if (scanning) {
+            stopScan();
+        }
+    }
+
+    /** 内存管理（T/TAF 358，C1）：内存吃紧时停扫描。 */
+    @Override
+    public void onTrimMemory(int level) {
+        super.onTrimMemory(level);
+        if (level >= TRIM_MEMORY_RUNNING_LOW && scanning) {
+            stopScan();
+        }
+    }
+
     // ==================== 扫描主流程 ====================
 
     private void startScan() {
@@ -198,7 +216,10 @@ public class BluetoothScanActivity extends Activity {
         synchronized (byMac) {
             count = byMac.size();
         }
-        tvStatus.setText(getString(R.string.bt_finished, count));
+        // 权限拒绝路径 finish() 时 tvStatus 尚未赋值（M3）
+        if (tvStatus != null) {
+            tvStatus.setText(getString(R.string.bt_finished, count));
+        }
     }
 
     /** 经典发现续扫任务：scanning 仍为 true 且蓝牙可用时重启 startDiscovery。 */

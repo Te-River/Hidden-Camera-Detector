@@ -28,6 +28,8 @@ public class IRActivity extends Activity implements TextureView.SurfaceTextureLi
     private BlobOverlayView overlayView;
     private TextView statusView;
     private HandlerThread analysisThread;
+    /** onPause 释放过相机且表面仍存活时，onResume 重启预览（C2：后台不耗电，回前台恢复可用）。 */
+    private boolean restartOnResume;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -84,7 +86,12 @@ public class IRActivity extends Activity implements TextureView.SurfaceTextureLi
 
     /** 相机后台线程回调：取最新帧 → 原生检测 → 主线程刷新叠加层与状态行。 */
     private void onImage(ImageReader reader) {
-        Image image = reader.acquireLatestImage();
+        Image image;
+        try {
+            image = reader.acquireLatestImage();
+        } catch (IllegalStateException e) {
+            return; // reader 已被 close（退出竞态），丢弃本帧（M2）
+        }
         if (image == null) {
             return;
         }
@@ -123,9 +130,7 @@ public class IRActivity extends Activity implements TextureView.SurfaceTextureLi
 
     @Override
     public boolean onSurfaceTextureDestroyed(SurfaceTexture surface) {
-        if (cameraHelper != null) {
-            cameraHelper.close();
-        }
+        releaseCamera();
         return true;
     }
 
@@ -133,9 +138,8 @@ public class IRActivity extends Activity implements TextureView.SurfaceTextureLi
     public void onSurfaceTextureUpdated(SurfaceTexture surface) {
     }
 
-    @Override
-    protected void onDestroy() {
-        super.onDestroy();
+    /** 释放相机与分析线程（onPause / onDestroy / onTrimMemory 共用）。 */
+    private void releaseCamera() {
         if (cameraHelper != null) {
             cameraHelper.close();
         }
@@ -143,5 +147,38 @@ public class IRActivity extends Activity implements TextureView.SurfaceTextureLi
             analysisThread.quitSafely();
             analysisThread = null;
         }
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        if (restartOnResume && previewView != null && previewView.isAvailable()) {
+            startCamera();
+        }
+        restartOnResume = false;
+    }
+
+    /** 功耗标准（C2）：不可见即停预览，回前台不意外耗电。 */
+    @Override
+    protected void onPause() {
+        super.onPause();
+        restartOnResume = true;
+        releaseCamera();
+    }
+
+    /** 内存管理（T/TAF 358，C1）：内存吃紧时释放相机。 */
+    @Override
+    public void onTrimMemory(int level) {
+        super.onTrimMemory(level);
+        if (level >= TRIM_MEMORY_RUNNING_LOW) {
+            restartOnResume = true;
+            releaseCamera();
+        }
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        releaseCamera();
     }
 }

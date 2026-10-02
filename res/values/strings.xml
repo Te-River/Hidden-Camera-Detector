@@ -21,6 +21,7 @@
     <string name="magnetic_normal">磁场正常</string>
     <string name="magnetic_alert">⚠ 检测到强磁场，附近可能有设备</string>
     <string name="magnetic_recalibrate">重新校准</string>
+    <string name="magnetic_no_sensor">设备无磁力计，无法使用磁场检测</string>
 
     <string name="ir_hint">请关闭灯光，缓慢移动手机扫描房间</string>
     <string name="ir_searching">正在检测红外亮斑…</string>
@@ -49,4 +50,5 @@
 
     <string name="perm_denied">权限被拒绝，无法使用该功能</string>
     <string name="camera_error">相机打开失败：%1$s</string>
+    <string name="blob_overlay_desc">检测亮斑标记叠加层</string>
 </resources>

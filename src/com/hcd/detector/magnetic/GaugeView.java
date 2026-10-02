@@ -113,6 +113,11 @@ public class GaugeView extends View {
         invalidate();
     }
 
+    /** 停止帧回调（内存吃紧时由 Activity 调用，C1）；重新附着窗口时自动恢复。 */
+    public void stopAnimation() {
+        Choreographer.getInstance().removeFrameCallback(frameCallback);
+    }
+
     @Override
     protected void onAttachedToWindow() {
         super.onAttachedToWindow();

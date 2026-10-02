@@ -60,6 +60,12 @@ public class MagneticActivity extends Activity implements SensorEventListener {
         if (sensorManager != null) {
             magneticSensor = sensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD);
         }
+        if (magneticSensor == null) {
+            // 无磁力计：给出明确提示并禁用重校准，避免永卡「校准中」（m2）
+            tvStatus.setText(R.string.magnetic_no_sensor);
+            tvStatus.setTextColor(getColor(R.color.colorAlert));
+            btnRecalibrate.setEnabled(false);
+        }
 
         MainActivity.applyImmersive(this);
         MainActivity.applyInsetsPadding(this, findViewById(android.R.id.content));
@@ -72,7 +78,7 @@ public class MagneticActivity extends Activity implements SensorEventListener {
         if (sensorManager != null && magneticSensor != null) {
             sensorManager.registerListener(this, magneticSensor, SensorManager.SENSOR_DELAY_GAME);
         }
-        if (!calibrated) {
+        if (magneticSensor != null && !calibrated) {
             startCalibration();
         }
     }
@@ -82,6 +88,15 @@ public class MagneticActivity extends Activity implements SensorEventListener {
         super.onPause();
         if (sensorManager != null) {
             sensorManager.unregisterListener(this);
+        }
+    }
+
+    /** 内存管理（T/TAF 358，C1）：内存吃紧时停表盘动画。 */
+    @Override
+    public void onTrimMemory(int level) {
+        super.onTrimMemory(level);
+        if (level >= TRIM_MEMORY_RUNNING_LOW) {
+            gauge.stopAnimation();
         }
     }
 
@@ -106,6 +121,7 @@ public class MagneticActivity extends Activity implements SensorEventListener {
         }
 
         gauge.setValue(v);
+        gauge.setContentDescription(getString(R.string.magnetic_value, v)); // 无障碍（C3）
         tvValue.setText(getString(R.string.magnetic_value, v));
         checkAlert(v);
     }

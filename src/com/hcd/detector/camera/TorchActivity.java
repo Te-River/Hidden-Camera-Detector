@@ -31,6 +31,8 @@ public class TorchActivity extends Activity implements TextureView.SurfaceTextur
     private Button toggleButton;
     private HandlerThread analysisThread;
     private boolean torchOn = true;
+    /** onPause 释放过相机且表面仍存活时，onResume 重启预览（C2：后台不耗电，回前台恢复可用）。 */
+    private boolean restartOnResume;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -71,11 +73,12 @@ public class TorchActivity extends Activity implements TextureView.SurfaceTextur
                 new CameraHelper.OpenListener() {
                     @Override
                     public void onOpened(Size analysisSize, ImageReader reader) {
-                        // 进入即常亮（契约 4.8）
-                        cameraHelper.setTorch(true);
+                        // 按当前开关状态初始化闪光，避免与用户操作脱同步（m1）
+                        cameraHelper.setTorch(torchOn);
                         reader.setOnImageAvailableListener(
                                 TorchActivity.this::onImage, analysisHandler);
-                        runOnUiThread(() -> toggleButton.setText(R.string.torch_on));
+                        runOnUiThread(() -> toggleButton.setText(
+                                torchOn ? R.string.torch_on : R.string.torch_off));
                     }
 
                     @Override
@@ -97,7 +100,12 @@ public class TorchActivity extends Activity implements TextureView.SurfaceTextur
 
     /** 相机后台线程回调：取最新帧 → 原生检测 → 主线程刷新叠加层与状态行。 */
     private void onImage(ImageReader reader) {
-        Image image = reader.acquireLatestImage();
+        Image image;
+        try {
+            image = reader.acquireLatestImage();
+        } catch (IllegalStateException e) {
+            return; // reader 已被 close（退出竞态），丢弃本帧（M2）
+        }
         if (image == null) {
             return;
         }
@@ -136,9 +144,7 @@ public class TorchActivity extends Activity implements TextureView.SurfaceTextur
 
     @Override
     public boolean onSurfaceTextureDestroyed(SurfaceTexture surface) {
-        if (cameraHelper != null) {
-            cameraHelper.close();
-        }
+        releaseCamera();
         return true;
     }
 
@@ -146,9 +152,8 @@ public class TorchActivity extends Activity implements TextureView.SurfaceTextur
     public void onSurfaceTextureUpdated(SurfaceTexture surface) {
     }
 
-    @Override
-    protected void onDestroy() {
-        super.onDestroy();
+    /** 释放相机与分析线程（onPause / onDestroy / onTrimMemory 共用）。 */
+    private void releaseCamera() {
         if (cameraHelper != null) {
             cameraHelper.close();
         }
@@ -156,5 +161,38 @@ public class TorchActivity extends Activity implements TextureView.SurfaceTextur
             analysisThread.quitSafely();
             analysisThread = null;
         }
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        if (restartOnResume && previewView != null && previewView.isAvailable()) {
+            startCamera();
+        }
+        restartOnResume = false;
+    }
+
+    /** 功耗标准（C2）：不可见即停预览与手电筒，回前台不意外耗电。 */
+    @Override
+    protected void onPause() {
+        super.onPause();
+        restartOnResume = true;
+        releaseCamera();
+    }
+
+    /** 内存管理（T/TAF 358，C1）：内存吃紧时释放相机。 */
+    @Override
+    public void onTrimMemory(int level) {
+        super.onTrimMemory(level);
+        if (level >= TRIM_MEMORY_RUNNING_LOW) {
+            restartOnResume = true;
+            releaseCamera();
+        }
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        releaseCamera();
     }
 }
