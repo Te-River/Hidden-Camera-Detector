@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="colorPrimary">#FF4FC3F7</color>
+    <color name="colorPrimaryDark">#FF0288D1</color>
+    <color name="colorAccent">#FF4FC3F7</color>
+    <color name="colorBackground">#FF0F1115</color>
+    <color name="colorSurface">#FF1A1D23</color>
+    <color name="colorTextPrimary">#FFE6EAF0</color>
+    <color name="colorTextSecondary">#FF9AA3B0</color>
+    <color name="colorNormal">#FF4CAF50</color>
+    <color name="colorAlert">#FFFF5252</color>
+    <color name="colorWarn">#FFFFC107</color>
+    <color name="colorGaugeArc">#FF2A3140</color>
+    <color name="colorGaugeNeedle">#FF4FC3F7</color>
+    <color name="colorDotNormal">#FF5A6472</color>
+    <color name="colorDotAlert">#FFFF5252</color>
+    <color name="ic_launcher_background">#FF0F1115</color>
+</resources>

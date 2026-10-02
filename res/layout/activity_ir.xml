@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#FF000000">
+
+    <TextureView
+        android:id="@+id/texture_preview"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"/>
+
+    <com.hcd.detector.camera.BlobOverlayView
+        android:id="@+id/overlay_blobs"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"/>
+
+    <TextView
+        android:id="@+id/tv_ir_status"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|center_horizontal"
+        android:textSize="16sp"
+        android:textColor="@color/colorNormal"
+        android:padding="10dp"/>
+</FrameLayout>

@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.hcd.detector"
+    android:versionCode="1"
+    android:versionName="1.0">
+
+    <uses-sdk android:minSdkVersion="26" android:targetSdkVersion="35"/>
+
+    <!-- 相机（IR/Torch 检测） -->
+    <uses-permission android:name="android.permission.CAMERA"/>
+    <!-- 磁力计告警震动 -->
+    <uses-permission android:name="android.permission.VIBRATE"/>
+    <!-- 网络扫描（Socket connect + NsdManager） -->
+    <uses-permission android:name="android.permission.INTERNET"/>
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE"/>
+    <uses-permission android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE"/>
+    <!-- 蓝牙：API 31+ 新权限（neverForLocation 免位置）；API 26-30 走旧权限+定位 -->
+    <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30"/>
+    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" android:maxSdkVersion="30"/>
+    <uses-permission android:name="android.permission.BLUETOOTH_SCAN"
+        android:minSdkVersion="31"
+        android:usesPermissionFlags="neverForLocation"/>
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" android:minSdkVersion="31"/>
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" android:maxSdkVersion="30"/>
+
+    <!-- 硬件特性全部非必需，保证无相应硬件的设备可安装 -->
+    <uses-feature android:name="android.hardware.camera" android:required="false"/>
+    <uses-feature android:name="android.hardware.camera.front" android:required="false"/>
+    <uses-feature android:name="android.hardware.camera.flash" android:required="false"/>
+    <uses-feature android:name="android.hardware.sensor.compass" android:required="false"/>
+    <uses-feature android:name="android.hardware.bluetooth_le" android:required="false"/>
+    <uses-feature android:name="android.hardware.wifi" android:required="false"/>
+
+    <application
+        android:label="@string/app_name"
+        android:icon="@mipmap/ic_launcher"
+        android:theme="@style/AppTheme"
+        android:allowBackup="false"
+        android:extractNativeLibs="true"
+        android:usesCleartextTraffic="false">
+
+        <activity android:name=".MainActivity" android:exported="true"
+            android:screenOrientation="portrait">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+        </activity>
+
+        <activity android:name=".magnetic.MagneticActivity" android:exported="false"
+            android:screenOrientation="portrait"/>
+        <activity android:name=".camera.IRActivity" android:exported="false"
+            android:screenOrientation="portrait"/>
+        <activity android:name=".camera.TorchActivity" android:exported="false"
+            android:screenOrientation="portrait"/>
+        <activity android:name=".network.NetworkScanActivity" android:exported="false"
+            android:screenOrientation="portrait"/>
+        <activity android:name=".bluetooth.BluetoothScanActivity" android:exported="false"
+            android:screenOrientation="portrait"/>
+    </application>
+</manifest>

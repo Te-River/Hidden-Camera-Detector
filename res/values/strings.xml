@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">隐藏摄像头探测器</string>
+    <string name="main_title">隐藏摄像头探测器</string>
+    <string name="main_subtitle">磁场 · 红外 · 强光反光 · 网络 · 蓝牙，五模式检测</string>
+
+    <string name="mode_magnetic">磁场检测</string>
+    <string name="mode_magnetic_desc">检测无线设备工作时的电磁泄漏</string>
+    <string name="mode_ir">红外检测</string>
+    <string name="mode_ir_desc">前摄识别红外补光灯亮斑</string>
+    <string name="mode_torch">强光反光检测</string>
+    <string name="mode_torch_desc">后摄手电筒照射，识别镜头反光</string>
+    <string name="mode_network">网络扫描</string>
+    <string name="mode_network_desc">扫描局域网内的摄像头端口</string>
+    <string name="mode_bluetooth">蓝牙扫描</string>
+    <string name="mode_bluetooth_desc">发现附近的蓝牙摄像头设备</string>
+
+    <string name="magnetic_calibrating">本底校准中：%1$d 秒</string>
+    <string name="magnetic_baseline">本底均值：%1$.1f µT</string>
+    <string name="magnetic_value">%1$.1f µT</string>
+    <string name="magnetic_normal">磁场正常</string>
+    <string name="magnetic_alert">⚠ 检测到强磁场，附近可能有设备</string>
+    <string name="magnetic_recalibrate">重新校准</string>
+
+    <string name="ir_hint">请关闭灯光，缓慢移动手机扫描房间</string>
+    <string name="ir_searching">正在检测红外亮斑…</string>
+    <string name="ir_found">发现 %1$d 个可疑亮点</string>
+    <string name="ir_none">未发现红外亮点</string>
+
+    <string name="torch_hint">开启手电筒照射可疑区域，寻找镜头反光</string>
+    <string name="torch_on">手电筒已开启</string>
+    <string name="torch_off">手电筒已关闭</string>
+    <string name="torch_found">发现 %1$d 个反光亮点</string>
+    <string name="torch_none">未发现反光亮点</string>
+
+    <string name="scan_start">开始扫描</string>
+    <string name="scan_stop">停止扫描</string>
+    <string name="scan_scanning">正在扫描 %1$s/24 网段…</string>
+    <string name="scan_progress">进度：%1$d/%2$d</string>
+    <string name="scan_finished">扫描完成，发现 %1$d 台设备</string>
+    <string name="scan_no_wifi">未找到 wlan0，请连接 Wi-Fi 后重试</string>
+    <string name="device_ports">端口：%1$s</string>
+    <string name="device_suspicious">可疑</string>
+
+    <string name="bt_start">开始扫描</string>
+    <string name="bt_stop">停止扫描</string>
+    <string name="bt_scanning">正在扫描蓝牙设备…</string>
+    <string name="bt_finished">扫描完成，发现 %1$d 台设备</string>
+
+    <string name="perm_denied">权限被拒绝，无法使用该功能</string>
+    <string name="camera_error">相机打开失败：%1$s</string>
+</resources>

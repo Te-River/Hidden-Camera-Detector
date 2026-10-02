@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="@color/colorBackground"
+    android:padding="16dp">
+
+    <TextView
+        android:id="@+id/tv_title"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/main_title"
+        android:textSize="24sp"
+        android:textStyle="bold"
+        android:textColor="@color/colorTextPrimary"/>
+
+    <TextView
+        android:id="@+id/tv_subtitle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/main_subtitle"
+        android:textSize="14sp"
+        android:textColor="@color/colorTextSecondary"
+        android:layout_marginBottom="12dp"/>
+
+    <ListView
+        android:id="@+id/list_modes"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:divider="@color/colorSurface"
+        android:dividerHeight="1dp"/>
+</LinearLayout>
