@@ -3,6 +3,7 @@ package com.hcd.detector.camera;
 import android.Manifest;
 import android.app.Activity;
 import android.content.pm.PackageManager;
+import android.graphics.Matrix;
 import android.graphics.SurfaceTexture;
 import android.media.Image;
 import android.media.ImageReader;
@@ -31,6 +32,11 @@ public class TorchActivity extends Activity implements TextureView.SurfaceTextur
     private Button toggleButton;
     private HandlerThread analysisThread;
     private boolean torchOn = true;
+    /** 帧坐标→视图坐标映射矩阵（与预览同一变换）及其均匀缩放因子；仅主线程访问。 */
+    private Matrix frameMatrix;
+    private float matrixScale = 1f;
+    private int frameW;
+    private int frameH;
     /** onPause 释放过相机且表面仍存活时，onResume 重启预览（C2：后台不耗电，回前台恢复可用）。 */
     private boolean restartOnResume;
 
@@ -77,8 +83,15 @@ public class TorchActivity extends Activity implements TextureView.SurfaceTextur
                         cameraHelper.setTorch(torchOn);
                         reader.setOnImageAvailableListener(
                                 TorchActivity.this::onImage, analysisHandler);
-                        runOnUiThread(() -> toggleButton.setText(
-                                torchOn ? R.string.torch_on : R.string.torch_off));
+                        runOnUiThread(() -> {
+                            if (analysisSize != null) {
+                                frameW = analysisSize.getWidth();
+                                frameH = analysisSize.getHeight();
+                            }
+                            rebuildMatrix();
+                            toggleButton.setText(
+                                    torchOn ? R.string.torch_on : R.string.torch_off);
+                        });
                     }
 
                     @Override
@@ -109,8 +122,6 @@ public class TorchActivity extends Activity implements TextureView.SurfaceTextur
         if (image == null) {
             return;
         }
-        int imageWidth = image.getWidth();
-        int imageHeight = image.getHeight();
         int[] blobs;
         try {
             blobs = BlobDetector.detect(image, BlobDetector.TORCH_THRESHOLD);
@@ -120,7 +131,8 @@ public class TorchActivity extends Activity implements TextureView.SurfaceTextur
         final int[] result = blobs;
         final int count = blobs == null ? 0 : blobs.length / 3;
         runOnUiThread(() -> {
-            overlayView.setBlobs(result, count, imageWidth, imageHeight);
+            overlayView.setBlobs(
+                    CameraHelper.mapBlobs(frameMatrix, matrixScale, result, count), count);
             if (count > 0) {
                 statusView.setText(getString(R.string.torch_found, count));
                 statusView.setTextColor(
@@ -133,6 +145,23 @@ public class TorchActivity extends Activity implements TextureView.SurfaceTextur
         });
     }
 
+    /** 视图/帧尺寸或相机变化后重建映射矩阵，并清空旧矩阵下的残留标记。 */
+    private void rebuildMatrix() {
+        frameMatrix = null;
+        matrixScale = 1f;
+        if (previewView == null || cameraHelper == null) {
+            return;
+        }
+        int vw = previewView.getWidth();
+        int vh = previewView.getHeight();
+        if (vw <= 0 || vh <= 0 || frameW <= 0 || frameH <= 0) {
+            return;
+        }
+        frameMatrix = cameraHelper.computeFrameMatrix(vw, vh, frameW, frameH);
+        matrixScale = CameraHelper.matrixScale(frameMatrix);
+        overlayView.clearBlobs();
+    }
+
     @Override
     public void onSurfaceTextureAvailable(SurfaceTexture surface, int width, int height) {
         startCamera();
@@ -140,6 +169,9 @@ public class TorchActivity extends Activity implements TextureView.SurfaceTextur
 
     @Override
     public void onSurfaceTextureSizeChanged(SurfaceTexture surface, int width, int height) {
+        // 视图尺寸变化：预览矩阵与标记矩阵都重算，旧标记清空
+        cameraHelper.applyPreviewTransform();
+        rebuildMatrix();
     }
 
     @Override

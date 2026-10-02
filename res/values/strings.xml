@@ -23,7 +23,9 @@
     <string name="magnetic_recalibrate">重新校准</string>
     <string name="magnetic_no_sensor">设备无磁力计，无法使用磁场检测</string>
 
-    <string name="ir_hint">请关闭灯光，缓慢移动手机扫描房间</string>
+    <string name="ir_hint">请关闭灯光，缓慢移动手机扫描房间。前摄通常可见红外，若无亮点试试切换后摄</string>
+    <string name="switch_to_back">切换后摄</string>
+    <string name="switch_to_front">切换前摄</string>
     <string name="ir_searching">正在检测红外亮斑…</string>
     <string name="ir_found">发现 %1$d 个可疑亮点</string>
     <string name="ir_none">未发现红外亮点</string>

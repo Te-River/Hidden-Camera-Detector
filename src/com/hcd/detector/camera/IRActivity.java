@@ -3,6 +3,7 @@ package com.hcd.detector.camera;
 import android.Manifest;
 import android.app.Activity;
 import android.content.pm.PackageManager;
+import android.graphics.Matrix;
 import android.graphics.SurfaceTexture;
 import android.media.Image;
 import android.media.ImageReader;
@@ -11,6 +12,7 @@ import android.os.Handler;
 import android.os.HandlerThread;
 import android.util.Size;
 import android.view.TextureView;
+import android.widget.Button;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -27,7 +29,15 @@ public class IRActivity extends Activity implements TextureView.SurfaceTextureLi
     private TextureView previewView;
     private BlobOverlayView overlayView;
     private TextView statusView;
+    private Button switchButton;
     private HandlerThread analysisThread;
+    /** 默认前摄（多数前摄无 IR-cut 滤镜，红外亮斑可见），可一键切换后摄。 */
+    private boolean useFront = true;
+    /** 帧坐标→视图坐标映射矩阵（与预览同一变换）及其均匀缩放因子；仅主线程访问。 */
+    private Matrix frameMatrix;
+    private float matrixScale = 1f;
+    private int frameW;
+    private int frameH;
     /** onPause 释放过相机且表面仍存活时，onResume 重启预览（C2：后台不耗电，回前台恢复可用）。 */
     private boolean restartOnResume;
 
@@ -45,6 +55,8 @@ public class IRActivity extends Activity implements TextureView.SurfaceTextureLi
         overlayView = findViewById(R.id.overlay_blobs);
         statusView = findViewById(R.id.tv_ir_status);
         statusView.setText(R.string.ir_hint);
+        switchButton = findViewById(R.id.btn_switch_camera);
+        switchButton.setOnClickListener(v -> switchCamera());
         cameraHelper = new CameraHelper(this);
         previewView.setSurfaceTextureListener(this);
         if (previewView.isAvailable()) {
@@ -64,13 +76,22 @@ public class IRActivity extends Activity implements TextureView.SurfaceTextureLi
         analysisThread = new HandlerThread("ir-analysis");
         analysisThread.start();
         final Handler analysisHandler = new Handler(analysisThread.getLooper());
-        cameraHelper.start(previewView, true, true, new Size(640, 480),
+        cameraHelper.start(previewView, useFront, true, new Size(640, 480),
                 new CameraHelper.OpenListener() {
                     @Override
                     public void onOpened(Size analysisSize, ImageReader reader) {
                         reader.setOnImageAvailableListener(
                                 IRActivity.this::onImage, analysisHandler);
-                        runOnUiThread(() -> statusView.setText(R.string.ir_searching));
+                        runOnUiThread(() -> {
+                            if (analysisSize != null) {
+                                frameW = analysisSize.getWidth();
+                                frameH = analysisSize.getHeight();
+                            }
+                            rebuildMatrix();
+                            switchButton.setText(cameraHelper.isFront()
+                                    ? R.string.switch_to_back : R.string.switch_to_front);
+                            statusView.setText(R.string.ir_searching);
+                        });
                     }
 
                     @Override
@@ -84,7 +105,14 @@ public class IRActivity extends Activity implements TextureView.SurfaceTextureLi
                 });
     }
 
-    /** 相机后台线程回调：取最新帧 → 原生检测 → 主线程刷新叠加层与状态行。 */
+    /** 前后摄切换：start 内部幂等 close 旧相机再开新相机，矩阵随 onOpened 重建。 */
+    private void switchCamera() {
+        useFront = !useFront;
+        overlayView.clearBlobs();
+        startCamera();
+    }
+
+    /** 相机后台线程回调：取最新帧 → 原生检测 → 主线程映射坐标并刷新叠加层与状态行。 */
     private void onImage(ImageReader reader) {
         Image image;
         try {
@@ -95,8 +123,6 @@ public class IRActivity extends Activity implements TextureView.SurfaceTextureLi
         if (image == null) {
             return;
         }
-        int imageWidth = image.getWidth();
-        int imageHeight = image.getHeight();
         int[] blobs;
         try {
             blobs = BlobDetector.detect(image, BlobDetector.IR_THRESHOLD);
@@ -106,7 +132,8 @@ public class IRActivity extends Activity implements TextureView.SurfaceTextureLi
         final int[] result = blobs;
         final int count = blobs == null ? 0 : blobs.length / 3;
         runOnUiThread(() -> {
-            overlayView.setBlobs(result, count, imageWidth, imageHeight);
+            overlayView.setBlobs(
+                    CameraHelper.mapBlobs(frameMatrix, matrixScale, result, count), count);
             if (count > 0) {
                 statusView.setText(getString(R.string.ir_found, count));
                 statusView.setTextColor(
@@ -119,6 +146,23 @@ public class IRActivity extends Activity implements TextureView.SurfaceTextureLi
         });
     }
 
+    /** 视图/帧尺寸或相机变化后重建映射矩阵，并清空旧矩阵下的残留标记。 */
+    private void rebuildMatrix() {
+        frameMatrix = null;
+        matrixScale = 1f;
+        if (previewView == null || cameraHelper == null) {
+            return;
+        }
+        int vw = previewView.getWidth();
+        int vh = previewView.getHeight();
+        if (vw <= 0 || vh <= 0 || frameW <= 0 || frameH <= 0) {
+            return;
+        }
+        frameMatrix = cameraHelper.computeFrameMatrix(vw, vh, frameW, frameH);
+        matrixScale = CameraHelper.matrixScale(frameMatrix);
+        overlayView.clearBlobs();
+    }
+
     @Override
     public void onSurfaceTextureAvailable(SurfaceTexture surface, int width, int height) {
         startCamera();
@@ -126,6 +170,9 @@ public class IRActivity extends Activity implements TextureView.SurfaceTextureLi
 
     @Override
     public void onSurfaceTextureSizeChanged(SurfaceTexture surface, int width, int height) {
+        // 视图尺寸变化：预览矩阵与标记矩阵都重算，旧标记清空
+        cameraHelper.applyPreviewTransform();
+        rebuildMatrix();
     }
 
     @Override

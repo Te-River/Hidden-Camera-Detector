@@ -17,10 +17,8 @@ import java.util.Arrays;
 public class BlobOverlayView extends View {
 
     private final Object lock = new Object();
-    private int[] blobs = new int[0];
+    private float[] blobs = new float[0];
     private int blobCount = 0;
-    private int imageWidth = 1;
-    private int imageHeight = 1;
 
     private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final float strokePx;
@@ -38,45 +36,43 @@ public class BlobOverlayView extends View {
     }
 
     /**
-     * 线程安全（任意线程）。blobs 为 [x,y,radius]×count（Y 平面坐标），
-     * count=0 清空。
+     * 线程安全（任意线程）。blobs 为【视图坐标】下的 [x,y,radius]×count
+     * （调用方已用预览矩阵 mapPoints 映射），count=0 清空。
      */
-    public void setBlobs(int[] blobs, int count, int imageWidth, int imageHeight) {
+    public void setBlobs(float[] blobs, int count) {
         synchronized (lock) {
             if (blobs == null || count <= 0) {
-                this.blobs = new int[0];
+                this.blobs = new float[0];
                 this.blobCount = 0;
             } else {
                 this.blobs = Arrays.copyOf(blobs, count * 3);
                 this.blobCount = count;
             }
-            this.imageWidth = Math.max(1, imageWidth);
-            this.imageHeight = Math.max(1, imageHeight);
         }
         postInvalidate();
+    }
+
+    /** 清空标记（矩阵/视图尺寸变化时避免旧矩阵残留点）。 */
+    public void clearBlobs() {
+        setBlobs(null, 0);
     }
 
     @Override
     protected void onDraw(Canvas canvas) {
         super.onDraw(canvas);
-        final int[] b;
+        final float[] b;
         final int n;
-        final float scaleX;
-        final float scaleY;
         synchronized (lock) {
             b = blobs;
             n = blobCount;
-            scaleX = getWidth() / (float) imageWidth;
-            scaleY = getHeight() / (float) imageHeight;
         }
         if (n == 0) {
             return;
         }
-        float radiusScale = (scaleX + scaleY) / 2f;
         for (int i = 0; i < n; i++) {
-            float cx = b[i * 3] * scaleX;
-            float cy = b[i * 3 + 1] * scaleY;
-            float radius = b[i * 3 + 2] * radiusScale;
+            float cx = b[i * 3];
+            float cy = b[i * 3 + 1];
+            float radius = b[i * 3 + 2];
             if (radius < strokePx) {
                 radius = strokePx; // 极小斑也保证可见
             }
