@@ -1,0 +1,17 @@
+# 构建产物
+build/
+*.apk
+*.dex
+*.class
+*.keystore
+
+# 中间文件
+*.o
+*.so
+out/
+
+# IDE / 工具
+.idea/
+*.iml
+.vscode/
+.DS_Store
