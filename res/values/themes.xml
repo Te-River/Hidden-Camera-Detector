@@ -5,8 +5,8 @@
         <item name="android:colorPrimaryDark">@color/colorPrimaryDark</item>
         <item name="android:colorAccent">@color/colorAccent</item>
         <item name="android:windowBackground">@color/colorBackground</item>
-        <item name="android:statusBarColor">@color/colorBackground</item>
-        <item name="android:navigationBarColor">@color/colorBackground</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
         <item name="android:textColorPrimary">@color/colorTextPrimary</item>
         <item name="android:textColorSecondary">@color/colorTextSecondary</item>
         <item name="android:colorButtonNormal">@color/colorSurface</item>

@@ -48,7 +48,9 @@ public class IRActivity extends Activity implements TextureView.SurfaceTextureLi
         if (previewView.isAvailable()) {
             startCamera();
         }
-        MainActivity.applyFullscreen(this);
+        MainActivity.applyImmersive(this);
+        // 预览层（TextureView/叠加层）保持全屏铺满，只有控件容器避让系统栏
+        MainActivity.applyInsetsPadding(this, findViewById(R.id.controls_container));
         MainActivity.applyHighRefreshRate(this);
     }
 

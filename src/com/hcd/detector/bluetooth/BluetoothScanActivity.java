@@ -136,7 +136,8 @@ public class BluetoothScanActivity extends Activity {
         registerReceiver(receiver, filter); // 两个均为系统保护广播，无需 EXPORTED 标志
         receiverRegistered = true;
 
-        MainActivity.applyFullscreen(this);
+        MainActivity.applyImmersive(this);
+        MainActivity.applyInsetsPadding(this, findViewById(android.R.id.content));
         MainActivity.applyHighRefreshRate(this);
     }
 

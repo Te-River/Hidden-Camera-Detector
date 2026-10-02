@@ -116,7 +116,8 @@ public class NetworkScanActivity extends Activity implements PortScanner.Callbac
             }
         });
 
-        MainActivity.applyFullscreen(this);
+        MainActivity.applyImmersive(this);
+        MainActivity.applyInsetsPadding(this, findViewById(android.R.id.content));
         MainActivity.applyHighRefreshRate(this);
     }
 

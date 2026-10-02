@@ -14,20 +14,27 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"/>
 
-    <Button
-        android:id="@+id/btn_torch_toggle"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="top|end"
-        android:layout_margin="16dp"
-        android:text="@string/torch_on"/>
+    <!-- 控件层：insets padding 加在这一层，预览层（TextureView/叠加层）保持全屏铺满 -->
+    <FrameLayout
+        android:id="@+id/controls_container"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
 
-    <TextView
-        android:id="@+id/tv_torch_status"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="bottom|center_horizontal"
-        android:textSize="16sp"
-        android:textColor="@color/colorNormal"
-        android:padding="10dp"/>
+        <Button
+            android:id="@+id/btn_torch_toggle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="top|end"
+            android:layout_margin="16dp"
+            android:text="@string/torch_on"/>
+
+        <TextView
+            android:id="@+id/tv_torch_status"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="bottom|center_horizontal"
+            android:textSize="16sp"
+            android:textColor="@color/colorNormal"
+            android:padding="10dp"/>
+    </FrameLayout>
 </FrameLayout>

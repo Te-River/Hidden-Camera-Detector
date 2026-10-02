@@ -61,7 +61,8 @@ public class MagneticActivity extends Activity implements SensorEventListener {
             magneticSensor = sensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD);
         }
 
-        MainActivity.applyFullscreen(this);
+        MainActivity.applyImmersive(this);
+        MainActivity.applyInsetsPadding(this, findViewById(android.R.id.content));
         MainActivity.applyHighRefreshRate(this);
     }
 
