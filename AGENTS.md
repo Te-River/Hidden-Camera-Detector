@@ -48,6 +48,7 @@
 ## 5. 协作规范
 
 - **每次 commit 必须 push**（用户硬性要求）。
+- **版本号方案**：正式发布前一律 `0.xx`（预览版）；允许在 GitHub 打 tag（`v0.x`）并发布 Release（附 APK）。
 - 构建产物只进 `build/`（gitignored）；临时文件放 OS tmp（`$PREFIX/tmp/opencode/`），不进仓库。
 - `docs/` 始终被跟踪。
 - 代码改动走 implementer → tester → reviewer 管线；修复循环直到零 Critical/Major。
