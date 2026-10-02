@@ -12,7 +12,8 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:textSize="26sp"
-        android:layout_marginEnd="14dp"/>
+        android:layout_marginEnd="14dp"
+        android:importantForAccessibility="no"/>
 
     <LinearLayout
         android:layout_width="wrap_content"

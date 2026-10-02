@@ -34,7 +34,7 @@ fi
 
 # 清理中间产物（保留 android.jar / platform zip / keystore）
 rm -rf "$BUILD/classes" "$BUILD/dex" "$BUILD/gen" "$BUILD/lib" "$BUILD/unpack" \
-       "$BUILD/res.zip" "$BUILD/base.apk" "$BUILD/unsigned.apk"
+       "$BUILD/res.zip" "$BUILD/base.apk" "$BUILD/unsigned.apk" "$BUILD/aligned.apk"
 mkdir -p "$BUILD/classes" "$BUILD/dex" "$BUILD/gen" "$BUILD/lib/arm64-v8a"
 
 # ===== 1. clang 编译 libirscan.so =====
@@ -54,7 +54,6 @@ mkdir -p "$BUILD/classes" "$BUILD/dex" "$BUILD/gen" "$BUILD/lib/arm64-v8a"
   --manifest "$REPO/AndroidManifest.xml" \
   --java "$BUILD/gen" \
   --min-sdk-version 26 --target-sdk-version 35 \
-  --version-code 1 --version-name "1.0" \
   "$BUILD/res.zip"
 
 # ===== 4. javac（--release 11） =====
@@ -81,7 +80,56 @@ with zipfile.ZipFile(base) as zin, \
     zout.write(so, 'lib/arm64-v8a/libirscan.so')
 EOF
 
-# ===== 7. keytool 生成 keystore（不存在才生成，跨构建复用保签名一致） =====
+# ===== 7. zipalign（Termux 无 zipalign 二进制，python 重写：STORED 条目 4 字节对齐，M4） =====
+# Android 11+ 安装时强制 resources.arsc 未压缩且 4 字节对齐，否则 INSTALL_FAILED。
+# 做法：重写 APK，对每个 STORED 条目用 extra field 零填充把数据偏移垫到 4 的倍数
+# （zipalign 的同款技术），随后验证并打印 resources.arsc 偏移。
+"$PYTHON" - "$BUILD/unsigned.apk" "$BUILD/aligned.apk" <<'EOF'
+import sys, zipfile
+
+src, dst = sys.argv[1], sys.argv[2]
+ALIGN = 4          # 对齐字节数
+LOCAL_HEADER = 30  # zip 本地文件头固定长度（不含文件名/extra）
+
+def data_offset(header_off, name_len, extra_len):
+    return header_off + LOCAL_HEADER + name_len + extra_len
+
+with zipfile.ZipFile(src) as zin, zipfile.ZipFile(dst, 'w') as zout:
+    pos = 0  # 下一个本地头在输出文件中的偏移
+    for it in zin.infolist():
+        data = zin.read(it.filename)
+        name_len = len(it.filename.encode('utf-8'))
+        extra = it.extra or b''
+        if it.compress_type == zipfile.ZIP_STORED:
+            pad = -data_offset(pos, name_len, len(extra)) % ALIGN
+            if pad:
+                extra += b'\x00' * pad  # extra field 填充（zipalign 同款做法）
+        it.extra = extra
+        zout.writestr(it, data)
+        pos = zout.fp.tell()
+
+# 验证：所有 STORED 条目（尤其 resources.arsc）数据偏移 mod 4 == 0
+ok = True
+with zipfile.ZipFile(dst) as z:
+    for it in z.infolist():
+        if it.compress_type != zipfile.ZIP_STORED:
+            continue
+        off = data_offset(it.header_offset,
+                          len(it.filename.encode('utf-8')), len(it.extra))
+        aligned = off % ALIGN == 0
+        ok = ok and aligned
+        print('  [zipalign] %-44s data@%-7d mod4=%d %s'
+              % (it.filename, off, off % ALIGN, 'OK' if aligned else 'MISALIGNED'))
+    arsc = z.getinfo('resources.arsc')
+    off = data_offset(arsc.header_offset,
+                      len('resources.arsc'), len(arsc.extra))
+    print('>> zipalign: resources.arsc offset=%d mod4=%d' % (off, off % ALIGN))
+    if not (ok and off % ALIGN == 0):
+        sys.exit('zipalign 验证失败')
+print('>> zipalign: 所有 STORED 条目已 4 字节对齐')
+EOF
+
+# ===== 8. keytool 生成 keystore（不存在才生成，跨构建复用保签名一致） =====
 KS="$BUILD/hcd.keystore"
 if [ ! -f "$KS" ]; then
   "$KEYTOOL" -genkeypair -keystore "$KS" -alias hcd -keyalg RSA -keysize 2048 \
@@ -89,11 +137,11 @@ if [ ! -f "$KS" ]; then
     -dname "CN=HiddenCameraDetector, OU=Dev, O=HCD, L=Beijing, ST=Beijing, C=CN"
 fi
 
-# ===== 8. apksigner 签名（V3，无需 zipalign） =====
+# ===== 9. apksigner 签名（V3；对齐已在步骤 7 完成，apksigner 保留条目对齐） =====
 "$APKSIGNER" sign --ks "$KS" --ks-pass pass:hcd2026 --ks-key-alias hcd --key-pass pass:hcd2026 \
-  --min-sdk-version 26 --out "$OUT_APK" "$BUILD/unsigned.apk"
+  --min-sdk-version 26 --out "$OUT_APK" "$BUILD/aligned.apk"
 
-# ===== 9. 打印产物路径与体积（不自动安装，由用户自行安装） =====
+# ===== 10. 打印产物路径与体积（不自动安装，由用户自行安装） =====
 echo ">> 构建完成："
 ls -l "$OUT_APK"
 du -h "$OUT_APK"
